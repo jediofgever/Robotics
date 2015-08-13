@@ -1,0 +1,17 @@
+K 25
+svn:wc:ra_dav:version-url
+V 84
+/svn/lecturematerial-robotics/!svn/ver/285/ss13/exercises/10/fastslam_framework/data
+END
+world.dat
+K 25
+svn:wc:ra_dav:version-url
+V 94
+/svn/lecturematerial-robotics/!svn/ver/285/ss13/exercises/10/fastslam_framework/data/world.dat
+END
+sensor_data.dat
+K 25
+svn:wc:ra_dav:version-url
+V 100
+/svn/lecturematerial-robotics/!svn/ver/285/ss13/exercises/10/fastslam_framework/data/sensor_data.dat
+END
