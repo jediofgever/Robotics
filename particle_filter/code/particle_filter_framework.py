@@ -76,8 +76,9 @@ class robot():
     # World data is passed as the dictionary. The positions of the landmarks in the world
     # can be accessed as wrld_dict[ids[i]][0],wrld_dict[ids[i]][1]
     # where i is looped over the number of measurements for the current timestamp
-    def measurement_prob_range(self, ids, ranges, wrld_dict):
-        sigma_measurement = 0.2
+    def measurement_prob_range(self, ids, ranges, bearings, wrld_dict):
+        sigma_measurement = 0.25
+        sigma_angle_measurement = 0.25
         error = 1.0
         for i in range(len(ids)):
             # particle distance
@@ -85,11 +86,16 @@ class robot():
             y_delta = wrld_dict[ids[i]][1] - self.y
             landmark_vector = [x_delta, y_delta]
             dist = np.linalg.norm(landmark_vector)
-            unit_landmark_vector = landmark_vector / dist
-
-            #pdf
             dist_pdf = scipy.stats.norm(ranges[i], sigma_measurement).pdf(dist)
-            error = error * dist_pdf
+
+            # rotate vector by particle orientation
+            unit_landmark_vector = landmark_vector / dist
+            x_bearing = cos(self.orientation)*unit_landmark_vector[0] + (-sin(self.orientation)*unit_landmark_vector[1])
+            y_bearing = sin(self.orientation)*unit_landmark_vector[0] + cos(self.orientation)*unit_landmark_vector[1]
+            angle = atan2(y_bearing, x_bearing)
+            angle_pdf = scipy.stats.norm(bearings[i], sigma_angle_measurement).pdf(angle)
+
+            error = error * (dist_pdf + angle_pdf)
         return error
 
     # --------
@@ -156,10 +162,9 @@ def get_mean_position(p):
     # Particles are plotted here
     ''' Lists x and y contains the x and y positions of all the particles which can be accessed from p[i].x , p[i].y
 		avg_orient is the average orientation of all the particles'''
-
-    plt.plot(x_pos,y_pos,'r.')
-    quiver_len = 3.0
-    plt.quiver(x / len(p), y / len(p), quiver_len * np.cos(avg_orient), quiver_len * np.sin(avg_orient),angles='xy',scale_units='xy')
+    plt.plot(x_pos, y_pos, 'ro')
+    #quiver_len = 3.0
+    #plt.quiver(x / len(p), y / len(p), quiver_len * np.cos(avg_orient), quiver_len * np.sin(avg_orient),angles='xy',scale_units='xy')
 
     plt.plot(lx,ly,'bo',markersize=10)
     plt.axis([-2, 15, 0, 15])
@@ -180,32 +185,32 @@ def resample_particles(weights, particles):
         for w in weights:
             norm_weights.append((w/Sum))
 
-        # calculate the PDF of the weights
-        pdf=[]
+        # calculate the CDF of the weights
+        cdf=[]
         Norm_Sum = 0.0
         for k in range(len(particles)):
             Norm_Sum = Norm_Sum + norm_weights[k]
-            pdf.append(Norm_Sum)
+            cdf.append(Norm_Sum)
 
         # Calculate the step for random sampling, it depends on number of particles
-        step = 1 / len(particles)
+        step = 1.0 / len(particles)
 
         # Sample a value in between [0,step) uniformly
         seed = random.uniform(0,step)
         #print 'Seed is %0.15s and step is %0.15s' %(seed, step)
 
-        # resample the particles based on the seed, step and calculated pdf
+        # resample the particles based on the seed, step and calculated cdf
         p_sampled = []
         index = 0
         for h in range(len(particles)):
             val = seed + step * h
-            index = sample_index(val, index, pdf)
+            index = sample_index(val, index, cdf)
             p_sampled.append(particles[index])
         return p_sampled
 
-def sample_index(val, index, pdf):
-        while pdf[index] < val:
-            index+1
+def sample_index(val, index, cdf):
+        while cdf[index] < val:
+            index = index + 1
         return index
 
 def particle_filter(data_dict,world_dict, N): #
@@ -223,20 +228,26 @@ def particle_filter(data_dict,world_dict, N): #
     # Update particles
     # sensor.dat file contains odometry + sensor updates -> length/2 entries
     #
+    total_max_weight = 0.0
     for t in range(len(data_dict)/2):
         # Step 1: motion update (prediction)
         p2 = []
         for i in range(N):
             p2.append(p[i].mov_odom(data_dict[t,'odom'],noise_param))
         p = p2
+        print get_mean_position(p)
 
         # Step 2: measurement update
         w = []
         for i in range(N):
-            w.append(p[i].measurement_prob_range(data_dict[t,'sensor']['id'], data_dict[t,'sensor']['range'], world_dict))
+            w.append(p[i].measurement_prob_range(data_dict[t,'sensor']['id'], data_dict[t,'sensor']['range'], data_dict[t, 'sensor']['bearing'], world_dict))
+
+        total_max_weight = total_max_weight + max(w)
+        #print "max weight: " + str(maxV)
 
 		# Step 3: resample particles to calculate new belief
         p = resample_particles(w,p)
+    print "total_max_weight: " + str(total_max_weight)
     return get_mean_position(p)
 
 
