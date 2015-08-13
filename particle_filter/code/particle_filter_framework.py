@@ -40,7 +40,7 @@ def read_sensor_data(filename):
             timestamp = timestamp+1
 
         if(line_spl[0]=='SENSOR'):
-            id_arr.append(float(line_spl[1]))
+            id_arr.append(int(line_spl[1]))
             range_arr.append(float(line_spl[2]))
             bearing_arr.append(float(line_spl[3]))
     data_dict[timestamp-1,'sensor'] = {'id':id_arr,'range':range_arr,'bearing':bearing_arr}
@@ -77,9 +77,19 @@ class robot():
     # can be accessed as wrld_dict[ids[i]][0],wrld_dict[ids[i]][1]
     # where i is looped over the number of measurements for the current timestamp
     def measurement_prob_range(self, ids, ranges, wrld_dict):
-		#TODO
-		''' Complete this Stub for the measurement model which is based on range only
-			Range only implies that the error has to be calculated based only on the range values'''
+        sigma_measurement = 0.2
+        error = 1.0
+        for i in range(len(ids)):
+            # particle distance
+            x_delta = wrld_dict[ids[i]][0] - self.x
+            y_delta = wrld_dict[ids[i]][1] - self.y
+            landmark_vector = [x_delta, y_delta]
+            dist = np.linalg.norm(landmark_vector)
+            unit_landmark_vector = landmark_vector / dist
+
+            #pdf
+            dist_pdf = scipy.stats.norm(ranges[i], sigma_measurement).pdf(dist)
+            error = error * dist_pdf
         return error
 
     # --------
@@ -125,12 +135,23 @@ class robot():
 def get_mean_position(p):
     x = 0.0 # sum total of all x positions
     y = 0.0 # sum total of all y positions
-    avg_orient = 0.0
     x_pos = []
     y_pos = []
+    angle_x = 0.0
+    angle_y = 0.0
 
     ''' Write the code here to calculate the mean position and orientation of all the particles'''
-	# TODO
+    for pt in p:
+        x_pos.append(pt.x)
+        y_pos.append(pt.y)
+        x = x + pt.x
+        y = y + pt.y
+        angle_x = angle_x + cos(pt.orientation)
+        angle_y = angle_y + sin(pt.orientation)
+
+    avg_angle_x = angle_x / len(p)
+    avg_angle_y = angle_y / len(p)
+    avg_orient = math.atan2(avg_angle_y, avg_angle_x)
 
     # Particles are plotted here
     ''' Lists x and y contains the x and y positions of all the particles which can be accessed from p[i].x , p[i].y
@@ -149,27 +170,43 @@ def get_mean_position(p):
 ''' Resampling the Particles
     Complete this Stub to resample the weights of the particles  '''
 def resample_particles(weights, particles):
-        # TODO Sum the weights
+        # Sum the weights
+        Sum = 0.0
+        for w in weights:
+            Sum = Sum + w
 
-        # TODO Normalize the weights
+        # Normalize the weights
+        norm_weights = []
+        for w in weights:
+            norm_weights.append((w/Sum))
 
         # calculate the PDF of the weights
         pdf=[]
-        for k in range(len(p)):
-			#TODO
+        Norm_Sum = 0.0
+        for k in range(len(particles)):
+            Norm_Sum = Norm_Sum + norm_weights[k]
+            pdf.append(Norm_Sum)
 
         # Calculate the step for random sampling, it depends on number of particles
-        step = #TODO
+        step = 1 / len(particles)
 
         # Sample a value in between [0,step) uniformly
-        seed = #TODO
+        seed = random.uniform(0,step)
         #print 'Seed is %0.15s and step is %0.15s' %(seed, step)
 
-        # resample the particles based on the seed , step and cacluated pdf
-        for h in range(len(p)):
-			#TODO
-
+        # resample the particles based on the seed, step and calculated pdf
+        p_sampled = []
+        index = 0
+        for h in range(len(particles)):
+            val = seed + step * h
+            index = sample_index(val, index, pdf)
+            p_sampled.append(particles[index])
         return p_sampled
+
+def sample_index(val, index, pdf):
+        while pdf[index] < val:
+            index+1
+        return index
 
 def particle_filter(data_dict,world_dict, N): #
     # --------
@@ -196,7 +233,7 @@ def particle_filter(data_dict,world_dict, N): #
         # Step 2: measurement update
         w = []
         for i in range(N):
-            w.append(p[i].measurement_prob_range(data_dict[t,'sensor']['id'],data_dict[t,'sensor']['range'],world_dict))
+            w.append(p[i].measurement_prob_range(data_dict[t,'sensor']['id'], data_dict[t,'sensor']['range'], world_dict))
 
 		# Step 3: resample particles to calculate new belief
         p = resample_particles(w,p)

@@ -1,2 +1,2 @@
 all:
-	python particle filter framework.py ../data/sensor.dat ../data/world.dat 5000 
+	python particle_filter_framework.py ../data/sensor_data.dat ../data/world.dat 1000
