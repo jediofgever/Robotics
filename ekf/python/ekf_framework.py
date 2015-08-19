@@ -102,7 +102,8 @@ def correction_step(mu, sigma, measurements, world_dict):
     # Initialize the Jacobian of H
     H = np.zeros((len(ids),3))
 
-    Zdelta = [0 for x in range(len(ids))]
+    Zdelta = [0 for i in range(len(ids))]
+
     # Vectorize measurements
     for i in range(len(ids)):
         # For each measurement, compute a row of H -> H[i,:]=
@@ -124,7 +125,7 @@ def correction_step(mu, sigma, measurements, world_dict):
     # Kalman correction for mean and covariance
     mu = mu + np.dot(K, Zdelta)
     sigma = np.dot((np.identity(len(mu)) - np.dot(K, H)), sigma)
-    plotCovariance(mu, sigma, [0.0, 0.0, 1.0])
+    plotCovariance(mu, sigma, [0.3, 0.0, 0.5])
     return mu,sigma
 
 ## Main loop Starts here
@@ -156,12 +157,12 @@ plt.show()
 for t in range(len(data_dict)/2):
     # Perform the prediction step of the EKF
     [mu, sigma] = prediction_step(mu, sigma, data_dict[t,'odom'])
-    x_pred = mu[0]
-    y_pred = mu[1]
-    plt.plot(x_pred,y_pred,'bo',markersize=10)
+    #x_pred = mu[0]
+    #y_pred = mu[1]
+    #plt.plot(x_pred,y_pred,'bo',markersize=10)
 
     # Perform the correction step of the EKF
-    #[mu, sigma] = correction_step(mu, sigma, data_dict[t,'sensor'], world_data)
+    [mu, sigma] = correction_step(mu, sigma, data_dict[t,'sensor'], world_data)
     x_pos = mu[0]
     y_pos = mu[1]
 
