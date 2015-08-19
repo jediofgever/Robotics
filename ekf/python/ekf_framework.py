@@ -4,6 +4,15 @@ import numpy.linalg as lng
 import argparse
 from collections import defaultdict
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
+
+def plotCovariance(center, matrix, color):
+    eigvalue, eigvector = lng.eig(matrix)
+    theta = atan2(eigvector[0][1], eigvector[0][0])
+    ellipse = Ellipse([center[0], center[1]], 2*pow(eigvalue[0], 0.5), 2*pow(eigvalue[1], 0.5), center[2])
+    ellipse.set_facecolor(color)
+    fig = plt.gcf()
+    fig.gca().add_artist(ellipse)
 
 def read_world_data(filename):
     world_dict = defaultdict()
@@ -77,8 +86,8 @@ def prediction_step(mu, sigma, odometry):
 
     # Predict the covariance
     sigma = np.dot(np.dot(G, sigma), np.transpose(G)) + Q
+    plotCovariance(mu, sigma, [1.0, 0.0, 0.0])
     return mu, sigma
-
 
 def correction_step(mu, sigma, measurements, world_dict):
     # Get the states
@@ -115,6 +124,7 @@ def correction_step(mu, sigma, measurements, world_dict):
     # Kalman correction for mean and covariance
     mu = mu + np.dot(K, Zdelta)
     sigma = np.dot((np.identity(len(mu)) - np.dot(K, H)), sigma)
+    plotCovariance(mu, sigma, [0.0, 0.0, 1.0])
     return mu,sigma
 
 ## Main loop Starts here
@@ -129,7 +139,7 @@ world_data = read_world_data(args.world_data)
 
 #Initial Belief
 mu = np.array([0.0, 0.0, 0.0]).T
-sigma = np.array([[1.0, 0.0 , 0.0],[0.0, 1.0 , 0.0],[0.0, 0.0 , 1.0]])
+sigma = np.identity(len(mu))
 
 # Landmark Positions
 lx=[]
@@ -146,9 +156,12 @@ plt.show()
 for t in range(len(data_dict)/2):
     # Perform the prediction step of the EKF
     [mu, sigma] = prediction_step(mu, sigma, data_dict[t,'odom'])
-    # Perform the correction step of the EKF
-    [mu, sigma] = correction_step(mu, sigma, data_dict[t,'sensor'], world_data)
+    x_pred = mu[0]
+    y_pred = mu[1]
+    plt.plot(x_pred,y_pred,'bo',markersize=10)
 
+    # Perform the correction step of the EKF
+    #[mu, sigma] = correction_step(mu, sigma, data_dict[t,'sensor'], world_data)
     x_pos = mu[0]
     y_pos = mu[1]
 
