@@ -85,7 +85,7 @@ class robot():
         and the Jacobian with respect to the landmark
     '''
     def measurement_model(self, landmark_id):
-        #two 2D vector for the position (x,y) of the observed landmark
+        # two 2D vectors for the position (x,y) of the observed landmark
         landmarkPos = self.landmarks[landmark_id][1];
 
         # use the current state of the particle to predict the measurment
@@ -98,7 +98,7 @@ class robot():
         h = np.empty((2,1))
 
         try:
-            h[0]=expectedRange[0]
+            h[0] = expectedRange[0]
         except:
             h[0] = expectedRange
 
@@ -109,7 +109,6 @@ class robot():
         # Compute the Jacobian H of the measurement function h wrt the landmark location
         H = np.zeros((2,2))
         H[0,0] = ((landmarkX - self.pose[0])/h[0])[0]
-
         H[0,1] = ((landmarkY - self.pose[1])/h[0])[0]
         H[1,0] = ((self.pose[1] - landmarkY)/(h[0]**2))[0]
         H[1,1] = ((landmarkX - self.pose[0])/(h[0]**2))[0]
@@ -119,32 +118,32 @@ class robot():
     # measurement_prob
     #    computes the probability of a measurement
     #
-    def correction_step(self, ids, ranges, bearings,wrld_dict):
-        #Construct the sensor noise matrix Q_t
+    def correction_step(self, ids, ranges, bearings, wrld_dict):
+        # TODO Construct the sensor noise matrix Q_t
         num_measurements = len(ids)
 
         # Loop over each measurement
         for i in range(num_measurements):
-
             '''
             The (2x2) EKF of the landmark is given by
             its mean particles(i).landmarks(l).mu
             and by its covariance particles(i).landmarks(l).sigma
             '''
-            #If the landmark is observed for the first time:
+            # If the landmark is observed for the first time:
             if (self.landmarks[ids[i]][0]==False):
                  #TODO:Initialize its position based on the measurement and the current robot pose:
-                 #get the Jacobian with respect to the landmark position
+                 # Get the Jacobian with respect to the landmark position
                  [h, H] = self.measurement_model(ids[i])
                  #TODO:Initialize the covariance for this landmark
                  #TODO:Indicate that this landmark has been observed
             else:
-                  #get the expected measurement
+                  # Get the expected measurement
                   [expectedZ, H] = self.measurement_model(ids[i])
                   P = self.landmarks[ids[i]][2]
                   #TODO:Calculate the Kalman gain
                   #TODO:Compute the error between the z and expectedZ
                   #TODO:Update the mean and covariance of the EKF
+
                   #TODO:compute the likelihood of this observation, multiply with the former weight
                   # to account for observing several features in one time step
         return self.weight
@@ -181,10 +180,6 @@ class robot():
         theta_new = normalize_angle(self.pose[2] + delta_rot1_noisy + delta_rot2_noisy)
 
         self.pose = np.array([x_new,y_new,theta_new])
-#        result = robot()
-#        result.set(x_new, y_new,theta_new )
-#
-#        return result
 
     # Set the weight of the particles
     def set_weights(self, weight):
@@ -210,31 +205,31 @@ class robot():
 def get_position(p):
     x = 0.0
     y = 0.0
-
-    orientation=0
-    x_pos =[]
+    x_pos = []
     y_pos = []
-    for i in range(len(p)):
-        x += p[i].pose[0]
-        y += p[i].pose[1]
-        #x_pos.append(p[i].pose[0])
-        #y_pos.append(p[i].pose[1])
+    angle_x = 0.0
+    angle_y = 0.0
 
-        #orientation += (((p[i].orientation - p[0].orientation + pi) % (2.0 * pi))
-         #              + p[0].orientation - pi)
-        orientation +=p[i].pose[2]
-   # print [x / len(p), y / len(p), orientation / len(p)]
-    avg_orient = normalize_angle(orientation / len(p))
+    for pt in p:
+        x += pt.pose[0]
+        y += pt.pose[1]
+        x_pos.append(pt.pose[0])
+        y_pos.append(pt.pose[1])
+        angle_x = angle_x + cos(pt.pose[2])
+        angle_y = angle_y + sin(pt.pose[2])
 
-#    plt.plot(x_pos,y_pos,'r.')
-#    quiver_len = 3.0
-#    theta_n = avg_orient
-#    plt.quiver(x / len(p), y / len(p), quiver_len * np.cos(theta_n), quiver_len * np.sin(theta_n),angles='xy',scale_units='xy')
-#
-#    plt.plot(lx,ly,'bo',markersize=10)
-#    plt.axis([-2, 15, 0, 15])
-#    plt.draw()
-#    plt.clf()
+    avg_angle_x = angle_x / len(p)
+    avg_angle_y = angle_y / len(p)
+    avg_orient = math.atan2(avg_angle_y, avg_angle_x)
+
+    plt.plot(x_pos,y_pos,'r.')
+    quiver_len = 3.0
+    plt.quiver(x / len(p), y / len(p), quiver_len * np.cos(avg_orient), quiver_len * np.sin(avg_orient),angles='xy',scale_units='xy')
+
+    plt.plot(lx,ly,'bo',markersize=10)
+    plt.axis([-2, 15, 0, 15])
+    plt.draw()
+    plt.clf()
     return [x / len(p), y / len(p), avg_orient ]
 
 # --------
@@ -266,7 +261,7 @@ def particle_filter(data_dict,world_dict, N): #
 
         # resampling
         S = sum(w)
-        print S
+        #print S
 
         #normalize the weights
         w_norm=[w[j]/S for j in range(N)]
@@ -276,9 +271,8 @@ def particle_filter(data_dict,world_dict, N): #
         p_cdf=[]
 
         for k in range(len(p)):
-            cdf_sum = cdf_sum+w_norm[k];
+            cdf_sum = cdf_sum + w_norm[k];
             p_cdf.append(cdf_sum)
-
         #print 'CDF calculated'
 
         # Calculate the step for random sampling
@@ -295,7 +289,7 @@ def particle_filter(data_dict,world_dict, N): #
                 last_index+=1
             p_sampled.append(p[last_index])
             seed = seed+step
-        p=p_sampled
+        p = p_sampled
         print get_position(p)
     return get_position(p)
 
@@ -309,11 +303,11 @@ args = parser.parse_args()
 N = args.N
 noise_param = np.array([0.005, 0.01, 0.005]).T
 
-#plt.axis([0, 15, 0, 15])
-#plt.ion()
-#plt.show()
+plt.ion()
+plt.show()
+
 data_dict = read_sensor_data(args.sensor_data)
-world_data  =read_world_data(args.world_data)
+world_data = read_world_data(args.world_data)
 
 lx=[]
 ly=[]
@@ -321,9 +315,6 @@ ly=[]
 for i in range (len(world_data)):
     lx.append(world_data[i+1][0])
     ly.append(world_data[i+1][1])
-
-#plt.plot(lx,ly,'bo',markersize=10)
-#plt.draw()
 
 print world_data
 estimated_position = particle_filter(data_dict,world_data,N)
