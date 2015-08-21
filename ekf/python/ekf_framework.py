@@ -123,7 +123,7 @@ def correction_step(mu, sigma, measurements, world_dict):
     K = np.dot(np.dot(sigma, np.transpose(H)), np.linalg.inv(S))
 
     # Kalman correction for mean and covariance
-    mu = mu + np.dot(K, Zdelta)
+    mu += np.dot(K, Zdelta)
     sigma = np.dot((np.identity(len(mu)) - np.dot(K, H)), sigma)
     plotCovariance(mu, sigma, [0.3, 0.0, 0.5])
     return mu,sigma

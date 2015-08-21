@@ -91,20 +91,13 @@ class robot():
         landmarkX = landmarkPos[0];
         landmarkY = landmarkPos[1];
 
-        expectedRange = np.sqrt((landmarkX - self.pose[0])**2 + (landmarkY - self.pose[1])**2);
-        angle = atan2(landmarkY-self.pose[1], landmarkX-self.pose[0]) - self.pose[2]
-        expectedBearing = normalize_angle(angle)
+        delta = [float(landmarkX - self.pose[0]), float(landmarkY - self.pose[1])]
+        expectedRange = np.sqrt(np.dot(delta, delta))
+        expectedBearing = normalize_angle(atan2(delta[1], delta[0]) - self.pose[2])
+
         h = np.empty((2,1))
-
-        try:
-            h[0] = expectedRange[0]
-        except:
-            h[0] = expectedRange
-
-        try:
-            h[1] = expectedBearing[0]
-        except:
-            h[1] = expectedBearing
+        h[0] = expectedRange
+        h[1] = expectedBearing
 
         # Compute the Jacobian H of the measurement function h wrt the landmark location
         H = np.zeros((2,2))
@@ -112,6 +105,7 @@ class robot():
         H[0,1] = ((landmarkY - self.pose[1])/h[0])[0]
         H[1,0] = ((self.pose[1] - landmarkY)/(h[0]**2))[0]
         H[1,1] = ((landmarkX - self.pose[0])/(h[0]**2))[0]
+
         return h,H
 
     # --------
@@ -157,7 +151,7 @@ class robot():
                   K = np.dot(np.dot(sigma, np.transpose(H)), np.linalg.inv(S))
 
                   # Compute the error between the z and expectedZ
-                  deltaZ = [ranges[i] - expectedZ[0][0], bearings[i] - expectedZ[1][0]]
+                  deltaZ = [ranges[i] - expectedZ[0], bearings[i] - expectedZ[1]]
 
                   # Update the mean and covariance of the EKF
                   self.landmarks[ids[i]][1] += np.dot(K, deltaZ)
@@ -165,7 +159,7 @@ class robot():
 
                   # Compute the likelihood of this observation, multiply with the former weight
                   # to account for observing several features in one time step
-                  self.weight *= sts.multivariate_normal.pdf([ranges[i], bearings[i]], [expectedZ[0][0], expectedZ[1][0]], S)
+                  self.weight *= sts.multivariate_normal.pdf([ranges[i], bearings[i]], [float(expectedZ[0]), float(expectedZ[1])], S)
         return self.weight
 
     # --------
