@@ -2,11 +2,10 @@ from math import *
 import numpy as np
 import random
 import argparse
-import scipy.stats
+import scipy.stats as sts
 from collections import defaultdict
 import math
 import matplotlib.pyplot as plt
-import cv2
 
 def read_world_data(filename):
     world_dict = defaultdict()
@@ -39,7 +38,7 @@ def read_sensor_data(filename):
                 bearing_arr = []
             timestamp = timestamp+1
         if(line_spl[0]=='SENSOR'):
-            id_arr.append(line_spl[1])
+            id_arr.append(int(line_spl[1]))
             range_arr.append(float(line_spl[2]))
             bearing_arr.append(float(line_spl[3]))
     data_dict[timestamp-1,'sensor'] = {'id':id_arr,'range':range_arr,'bearing':bearing_arr}
@@ -66,7 +65,7 @@ class robot():
         self.pose = np.zeros((3,1))
         self.weight = 1.0/N
         self.history = np.empty(self.pose.shape)
-        self.landmarks =np.empty((len(world_data)+1), dtype=object)
+        self.landmarks = np.empty((len(world_data)+1), dtype=object)
         for i in range(len(world_data)):
             self.landmarks[i+1]= [False,np.zeros((2,1)),np.zeros((2,2))] # observed, mu , sigma
 
@@ -85,7 +84,7 @@ class robot():
         and the Jacobian with respect to the landmark
     '''
     def measurement_model(self, landmark_id):
-        # two 2D vectors for the position (x,y) of the observed landmark
+        # A 2D vector for the position (x,y) of the observed landmark
         landmarkPos = self.landmarks[landmark_id][1];
 
         # use the current state of the particle to predict the measurment
@@ -106,6 +105,7 @@ class robot():
             h[1] = expectedBearing[0]
         except:
             h[1] = expectedBearing
+
         # Compute the Jacobian H of the measurement function h wrt the landmark location
         H = np.zeros((2,2))
         H[0,0] = ((landmarkX - self.pose[0])/h[0])[0]
@@ -119,7 +119,8 @@ class robot():
     #    computes the probability of a measurement
     #
     def correction_step(self, ids, ranges, bearings, wrld_dict):
-        # TODO Construct the sensor noise matrix Q_t
+        # Construct the sensor noise matrix Q_t
+        Q = [[0.5, 0], [0, 0.5]]
         num_measurements = len(ids)
 
         # Loop over each measurement
@@ -130,22 +131,41 @@ class robot():
             and by its covariance particles(i).landmarks(l).sigma
             '''
             # If the landmark is observed for the first time:
-            if (self.landmarks[ids[i]][0]==False):
-                 #TODO:Initialize its position based on the measurement and the current robot pose:
+            if not self.landmarks[ids[i]][0]:
+                 # Initialize its position based on the measurement and the current robot pose:
+                 self.landmarks[ids[i]][1] = [cos(bearings[i])*ranges[i]+self.pose[0], sin(bearings[i])*ranges[i]+self.pose[1]]
+
                  # Get the Jacobian with respect to the landmark position
                  [h, H] = self.measurement_model(ids[i])
-                 #TODO:Initialize the covariance for this landmark
-                 #TODO:Indicate that this landmark has been observed
+
+                 # Initialize the covariance for this landmark
+                 invH = np.linalg.inv(H)
+                 self.landmarks[ids[i]][2] = np.dot(np.dot(invH, Q), np.transpose(invH))
+
+                 # Indicate that this landmark has been observed
+                 self.landmarks[ids[i]][0] = True
             else:
                   # Get the expected measurement
                   [expectedZ, H] = self.measurement_model(ids[i])
-                  P = self.landmarks[ids[i]][2]
-                  #TODO:Calculate the Kalman gain
-                  #TODO:Compute the error between the z and expectedZ
-                  #TODO:Update the mean and covariance of the EKF
+                  sigma = self.landmarks[ids[i]][2]
 
-                  #TODO:compute the likelihood of this observation, multiply with the former weight
+                  # Calculate the Kalman gain
+                  # Measurement Covariance
+                  S = np.dot(np.dot(H, sigma), np.transpose(H)) + Q
+
+                  # Kalman Gain
+                  K = np.dot(np.dot(sigma, np.transpose(H)), np.linalg.inv(S))
+
+                  # Compute the error between the z and expectedZ
+                  deltaZ = [ranges[i] - expectedZ[0][0], bearings[i] - expectedZ[1][0]]
+
+                  # Update the mean and covariance of the EKF
+                  self.landmarks[ids[i]][1] += np.dot(K, deltaZ)
+                  self.landmarks[ids[i]][2] = np.dot((np.identity(len(deltaZ)) - np.dot(K, H)), sigma)
+
+                  # Compute the likelihood of this observation, multiply with the former weight
                   # to account for observing several features in one time step
+                  self.weight *= sts.multivariate_normal.pdf([ranges[i], bearings[i]], [expectedZ[0][0], expectedZ[1][0]], S)
         return self.weight
 
     # --------
@@ -249,7 +269,7 @@ def particle_filter(data_dict,world_dict, N): #
     # Update particles
     #
     for t in range(len(data_dict)/2):
-        print t
+        print "Round: " + str(t)
         # motion update (prediction)
         for i in range(N):
             p[i].mov_odom(data_dict[t,'odom'],noise_param)
@@ -316,7 +336,7 @@ for i in range (len(world_data)):
     lx.append(world_data[i+1][0])
     ly.append(world_data[i+1][1])
 
-print world_data
 estimated_position = particle_filter(data_dict,world_data,N)
 
+print world_data
 print estimated_position
