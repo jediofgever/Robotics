@@ -6,6 +6,7 @@ import scipy.stats as sts
 from collections import defaultdict
 import math
 import matplotlib.pyplot as plt
+from matplotlib.patches import Ellipse
 
 def read_world_data(filename):
     world_dict = defaultdict()
@@ -105,7 +106,6 @@ class robot():
         H[0,1] = ((landmarkY - self.pose[1])/h[0])[0]
         H[1,0] = ((self.pose[1] - landmarkY)/(h[0]**2))[0]
         H[1,1] = ((landmarkX - self.pose[0])/(h[0]**2))[0]
-
         return h,H
 
     # --------
@@ -127,7 +127,8 @@ class robot():
             # If the landmark is observed for the first time:
             if not self.landmarks[ids[i]][0]:
                  # Initialize its position based on the measurement and the current robot pose:
-                 self.landmarks[ids[i]][1] = [cos(bearings[i])*ranges[i]+self.pose[0], sin(bearings[i])*ranges[i]+self.pose[1]]
+                 abs_bearing = normalize_angle(bearings[i] + self.pose[2])
+                 self.landmarks[ids[i]][1] = [cos(abs_bearing)*ranges[i]+self.pose[0], sin(abs_bearing)*ranges[i]+self.pose[1]]
 
                  # Get the Jacobian with respect to the landmark position
                  [h, H] = self.measurement_model(ids[i])
@@ -160,7 +161,7 @@ class robot():
                   # Compute the likelihood of this observation, multiply with the former weight
                   # to account for observing several features in one time step
                   self.weight *= sts.multivariate_normal.pdf([ranges[i], bearings[i]], [float(expectedZ[0]), float(expectedZ[1])], S)
-        return self.weight
+        return max(self.weight, 0.0001)
 
     # --------
     # move_odom:
@@ -192,7 +193,6 @@ class robot():
         x_new = self.pose[0]  + translation_noisy * cos(self.pose[2]+delta_rot1_noisy)
         y_new = self.pose[1]  + translation_noisy * sin(self.pose[2]+delta_rot1_noisy)
         theta_new = normalize_angle(self.pose[2] + delta_rot1_noisy + delta_rot2_noisy)
-
         self.pose = np.array([x_new,y_new,theta_new])
 
     # Set the weight of the particles
@@ -212,6 +212,14 @@ class robot():
             Z.append(distance)
         return Z
 
+def plotCovariance(center, matrix, color):
+    eigvalue, eigvector = np.linalg.eig(matrix)
+    theta = atan2(eigvector[0][1], eigvector[0][0])
+    ellipse = Ellipse([center[0], center[1]], 2*pow(eigvalue[0], 0.5), 2*pow(eigvalue[1], 0.5), theta)
+    ellipse.set_facecolor(color)
+    fig = plt.gcf()
+    fig.gca().add_artist(ellipse)
+
 # --------
 #
 # extract position from a particle set
@@ -223,6 +231,12 @@ def get_position(p):
     y_pos = []
     angle_x = 0.0
     angle_y = 0.0
+
+    # draw expected landmark positions
+    for ldmk in p[0].landmarks:
+        # seen landmark before
+        if ldmk and ldmk[0]:
+            plotCovariance(ldmk[1], ldmk[2], [1.0, 0.0, 0.0])
 
     for pt in p:
         x += pt.pose[0]
@@ -285,7 +299,7 @@ def particle_filter(data_dict,world_dict, N): #
         p_cdf=[]
 
         for k in range(len(p)):
-            cdf_sum = cdf_sum + w_norm[k];
+            cdf_sum = cdf_sum + w_norm[k]
             p_cdf.append(cdf_sum)
         #print 'CDF calculated'
 
@@ -302,7 +316,7 @@ def particle_filter(data_dict,world_dict, N): #
             while seed > p_cdf[last_index]:
                 last_index+=1
             p_sampled.append(p[last_index])
-            seed = seed+step
+            seed += step
         p = p_sampled
         print get_position(p)
     return get_position(p)

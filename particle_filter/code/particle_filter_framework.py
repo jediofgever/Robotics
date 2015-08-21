@@ -95,7 +95,7 @@ class robot():
             angle = atan2(y_bearing, x_bearing)
             angle_pdf = scipy.stats.norm(bearings[i], sigma_angle_measurement).pdf(angle)
 
-            error = error * (dist_pdf + angle_pdf)
+            error *= (dist_pdf + angle_pdf)
         return error
 
     # --------

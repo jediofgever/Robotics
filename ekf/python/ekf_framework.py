@@ -9,7 +9,7 @@ from matplotlib.patches import Ellipse
 def plotCovariance(center, matrix, color):
     eigvalue, eigvector = lng.eig(matrix)
     theta = atan2(eigvector[0][1], eigvector[0][0])
-    ellipse = Ellipse([center[0], center[1]], 2*pow(eigvalue[0], 0.5), 2*pow(eigvalue[1], 0.5), center[2])
+    ellipse = Ellipse([center[0], center[1]], 2*pow(eigvalue[0], 0.5), 2*pow(eigvalue[1], 0.5), theta)
     ellipse.set_facecolor(color)
     fig = plt.gcf()
     fig.gca().add_artist(ellipse)
