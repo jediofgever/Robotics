@@ -64,7 +64,7 @@ class robot():
     #
     def __init__(self):
         self.pose = np.zeros((3,1))
-        self.weight = 1.0/N
+        self.weight = 1.0
         self.history = np.empty(self.pose.shape)
         self.landmarks = np.empty((len(world_data)+1), dtype=object)
         for i in range(len(world_data)):
@@ -113,6 +113,7 @@ class robot():
     #    computes the probability of a measurement
     #
     def correction_step(self, ids, ranges, bearings, wrld_dict):
+        self.weight = 1.0
         # Construct the sensor noise matrix Q_t
         Q = [[0.5, 0], [0, 0.5]]
         num_measurements = len(ids)
@@ -160,8 +161,9 @@ class robot():
 
                   # Compute the likelihood of this observation, multiply with the former weight
                   # to account for observing several features in one time step
-                  self.weight *= sts.multivariate_normal.pdf([ranges[i], bearings[i]], [float(expectedZ[0]), float(expectedZ[1])], S)
-        return max(self.weight, 0.0001)
+                  likelihood = sts.multivariate_normal.pdf([ranges[i], bearings[i]], [float(expectedZ[0]), float(expectedZ[1])], S)
+                  self.weight *= likelihood
+        return max(self.weight, pow(10, -num_measurements))
 
     # --------
     # move_odom:
@@ -224,7 +226,7 @@ def plotCovariance(center, matrix, color):
 #
 # extract position from a particle set
 #
-def get_position(p):
+def get_position(p, sensor_data, index = 0):
     x = 0.0
     y = 0.0
     x_pos = []
@@ -233,10 +235,20 @@ def get_position(p):
     angle_y = 0.0
 
     # draw expected landmark positions
-    for ldmk in p[0].landmarks:
+    for ldmk in p[index].landmarks:
         # seen landmark before
         if ldmk and ldmk[0]:
             plotCovariance(ldmk[1], ldmk[2], [1.0, 0.0, 0.0])
+
+    # draw landmark measurements
+    ldmk_x = []
+    ldmk_y = []
+    for i in range(len(sensor_data['id'])):
+        rng = sensor_data['range'][i]
+        bearing = normalize_angle(sensor_data['bearing'][i] + p[index].pose[2])
+        ldmk_x.append(cos(bearing)*rng+p[index].pose[0])
+        ldmk_y.append(sin(bearing)*rng+p[index].pose[1])
+    plt.plot(ldmk_x,ldmk_y,'go', markersize=5)
 
     for pt in p:
         x += pt.pose[0]
@@ -289,7 +301,9 @@ def particle_filter(data_dict,world_dict, N): #
 
         # resampling
         S = sum(w)
-        #print S
+        minW = min(w)
+        minIndex = w.index(minW)
+        print S
 
         #normalize the weights
         w_norm=[w[j]/S for j in range(N)]
@@ -318,7 +332,7 @@ def particle_filter(data_dict,world_dict, N): #
             p_sampled.append(p[last_index])
             seed += step
         p = p_sampled
-        print get_position(p)
+        print get_position(p, data_dict[t, 'sensor'], minIndex)
     return get_position(p)
 
 ## Main loop Starts here
