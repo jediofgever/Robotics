@@ -162,8 +162,13 @@ class robot():
                   # Compute the likelihood of this observation, multiply with the former weight
                   # to account for observing several features in one time step
                   likelihood = sts.multivariate_normal.pdf([ranges[i], bearings[i]], [float(expectedZ[0]), float(expectedZ[1])], S)
+                  print [ranges[i], bearings[i]]
+                  print expectedZ
+                  print S
+                  print "####"
                   self.weight *= likelihood
-        return max(self.weight, pow(10, -num_measurements))
+        print "-------------------------"
+        return self.weight
 
     # --------
     # move_odom:
@@ -222,20 +227,9 @@ def plotCovariance(center, matrix, color):
     fig = plt.gcf()
     fig.gca().add_artist(ellipse)
 
-# --------
-#
-# extract position from a particle set
-#
-def get_position(p, sensor_data, index = 0):
-    x = 0.0
-    y = 0.0
-    x_pos = []
-    y_pos = []
-    angle_x = 0.0
-    angle_y = 0.0
-
+def draw_particle(sensor_data, p):
     # draw expected landmark positions
-    for ldmk in p[index].landmarks:
+    for ldmk in p.landmarks:
         # seen landmark before
         if ldmk and ldmk[0]:
             plotCovariance(ldmk[1], ldmk[2], [1.0, 0.0, 0.0])
@@ -245,10 +239,22 @@ def get_position(p, sensor_data, index = 0):
     ldmk_y = []
     for i in range(len(sensor_data['id'])):
         rng = sensor_data['range'][i]
-        bearing = normalize_angle(sensor_data['bearing'][i] + p[index].pose[2])
-        ldmk_x.append(cos(bearing)*rng+p[index].pose[0])
-        ldmk_y.append(sin(bearing)*rng+p[index].pose[1])
+        bearing = normalize_angle(sensor_data['bearing'][i] + p.pose[2])
+        ldmk_x.append(cos(bearing)*rng+p.pose[0])
+        ldmk_y.append(sin(bearing)*rng+p.pose[1])
     plt.plot(ldmk_x,ldmk_y,'go', markersize=5)
+
+# --------
+#
+# extract position from a particle set
+#
+def get_position(p):
+    x = 0.0
+    y = 0.0
+    x_pos = []
+    y_pos = []
+    angle_x = 0.0
+    angle_y = 0.0
 
     for pt in p:
         x += pt.pose[0]
@@ -302,7 +308,9 @@ def particle_filter(data_dict,world_dict, N): #
         # resampling
         S = sum(w)
         minW = min(w)
+        maxW = max(w)
         minIndex = w.index(minW)
+        maxIndex = w.index(maxW)
         print S
 
         #normalize the weights
@@ -332,7 +340,10 @@ def particle_filter(data_dict,world_dict, N): #
             p_sampled.append(p[last_index])
             seed += step
         p = p_sampled
-        print get_position(p, data_dict[t, 'sensor'], minIndex)
+
+        #draw_particle(data_dict[t, 'sensor'], p[minIndex])
+        draw_particle(data_dict[t, 'sensor'], p[maxIndex])
+        print get_position(p)
     return get_position(p)
 
 ## Main loop Starts here
