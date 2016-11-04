@@ -1,0 +1,25 @@
+1. Implement random tree.
+- derive from base::Planner, implement solve, clear, and getPlannerData (DONE)
+- solve for exact solution if found (DONE)
+- solve for approx path that ends in closest state to goal (DONE)
+
+2. Create 2D environments (DONE)
+- Go around
+	- 2 squares with corners:
+		- [(-0.5,0.5),(-0.5,-0.5),(-0.25,-0.5),(-0.25,0.5)]
+		- [(0.25,-0.25),(0.25,-0.5),(-0.25,-0.5),(-0.25,-0.25)]
+- Narrow path
+	- 2 squares with corners:
+		- [(-1.0,0.5),(-1.0,-0.5),(-0.25,-0.5),(-0.25,0.5)]
+		- [(1.0,0.5),(1.0,-0.5),(0.25,-0.5),(0.25,0.5)]
+
+3. Create exact collision checking methods
+- point robot (DONE)
+- circle robot radius = 0.1 (can change in plotsolution.py) (DONE)
+- side length of square robot = 0.25 (can also change) (DONE)
+
+4. Compute motion plans for different robot geometries using random tree.
+- Visualize the world (DONE)
+
+5. Compare random tree with PRM,EST,RRT using benchmark class
+- need 20 independent runs for each planner (DONE)
