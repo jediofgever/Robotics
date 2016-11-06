@@ -1,4 +1,4 @@
-import math import *
+from math import *
 import random
 
 class matrix:
